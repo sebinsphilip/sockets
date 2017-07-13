@@ -1,0 +1,1 @@
+Obtain a file descriptor to communicate over n/w using socket () system call , and use send () and recv () calls for communication (normal read () and write () is also possible).
