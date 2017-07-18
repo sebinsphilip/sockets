@@ -4,7 +4,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <errorno.h>
+#include <errno.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -19,19 +19,30 @@ void sigchld_handler (int s)
         while (waitpid (-1, NULL, WNOHANG) > 0);
 }
 
+void *get_in_addr(struct sockaddr *sa)
+{
+        if (AF_INET == sa->sa_family)
+        {
+                return &(((struct sockaddr_in*)sa)->sin_addr);
+        }
+        return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
+
 int main ()
 {
-        struct addrinfo *sServerInfo, sHints;
+        struct addrinfo *sServerInfo, sHints, *p;
         int iSockFd , iNewFd, iStatus, yes=1;
         struct sigaction sa;
+        socklen_t sin_size;
+        struct sockaddr_storage their_addr;
 
         memset (&sHints , 0, sizeof sHints);
         sHints.ai_family = AF_UNSPEC;
         sHints.ai_socktype = SOCK_STREAM;
-        sHints.ai_flags = AI_PASSIVE;
+        //sHints.ai_flags = AI_PASSIVE;
         char acAddress[INET6_ADDRSTRLEN];
 
-        if (0 != (iStatus = getaddrinfo (NULL, PORT, &sHints, &sServerInfo)))
+        if (0 != (iStatus = getaddrinfo ("127.0.0.27", PORT, &sHints, &sServerInfo)))
         {
                 fprintf (stdout, "getaddrinfo : %s\n", gai_strerror (iStatus));
                 return 1;
@@ -46,7 +57,7 @@ int main ()
                         continue;
                 }
 
-                if (-1 == (setsockopt (iSockFd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof int)))
+                if (-1 == (setsockopt (iSockFd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof (int))))
                 {
                         perror ("server: setsockopt ()");
                         continue;
@@ -94,7 +105,7 @@ int main ()
                 }
 
                 inet_ntop (their_addr.ss_family, 
-                                get_in_addr ((struct sockaddr *)their_addr),
+                                get_in_addr ((struct sockaddr *)&their_addr),
                                 acAddress, sizeof acAddress);
                 printf ("server: got connection from %s", acAddress);
                 if (!fork ())
