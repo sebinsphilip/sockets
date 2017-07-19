@@ -16,101 +16,141 @@
 
 void *get_in_addr(struct sockaddr *sa)
 {
-    if (AF_INET == sa->sa_family)
-    {
-        return &(((struct sockaddr_in*)sa)->sin_addr);
-    }
-    return &(((struct sockaddr_in6*)sa)->sin6_addr);
+        if (AF_INET == sa->sa_family)
+        {
+                return &(((struct sockaddr_in*)sa)->sin_addr);
+        }
+        return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
 int main ()
 {
-    fd_set master, read_fds;
-    int fdmax;
-    struct addrinfo *sServerInfo, sHints, *p;
-    struct sockaddr_storage sRemoteAddr;
-    socklen_t addrlen;
-    int iListener , iNewFd, iStatus, yes=1, i, j;
+        fd_set master, read_fds;
+        int fdmax;
+        struct addrinfo *sServerInfo, sHints, *p;
+        struct sockaddr_storage sRemoteAddr;
+        socklen_t addrlen;
+        int iListener , iNewFd, iStatus, yes=1, i, j;
 
-    char acBuf[256];
-    int iNumBytes;
+        char acBuf[256];
+        int iNumBytes;
 
-    char acRemoteIP[INET6_ADDRSTRLEN];
+        char acRemoteIP[INET6_ADDRSTRLEN];
 
-    FD_ZERO (&master);
-    FD_ZERO (&read_fds);
-    memset (&sHints, 0, sizeof sHints);
-    sHints.ai_family = AF_UNSPEC;
-    sHints.ai_socktype = SOCK_STREAM;
-    sHints.ai_flags = AI_PASSIVE;
+        FD_ZERO (&master);
+        FD_ZERO (&read_fds);
+        memset (&sHints, 0, sizeof sHints);
+        sHints.ai_family = AF_UNSPEC;
+        sHints.ai_socktype = SOCK_STREAM;
+        //sHints.ai_flags = AI_PASSIVE;
 
-    if (0 != (iStatus = getaddrinfo (NULL, PORT, &sHints, &sServerInfo)))
-    {
-        fprintf (stderr, "server: getaddrinfo %s\n", gai_strerror (iStatus));
-        exit (1);
-    }
-
-    for (p=sServerInfo; NULL!=p; p = p->ai_next)
-    {
-        if (-1 == (iListener = socket (p->ai_family, p->ai_socktype, p->ai_protocol)))
+        if (0 != (iStatus = getaddrinfo ("127.0.0.5", PORT, &sHints, &sServerInfo)))
         {
-            perror ("server: socket");
-            continue;
+                fprintf (stderr, "server: getaddrinfo %s\n", gai_strerror (iStatus));
+                exit (1);
         }
-        setsockopt (iListener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof (int));
-        if (-1 == (bind (iListener, p->ai_addr, p->ai_addrlen)))
-        {
-            perror ("server: bind");
-            close (iListener);
-            continue;
-        }
-        break;
-    }
-    if (NULL == p)
-    {
-        fprintf ("server: failed to bind\n");
-        exit (2);
-    }
-    freeaddrinfo (sServerInfo);
-    if (-1 == listen (iListener,10))
-    {
-        perror ("server: listen");
-        exit (3);
-    }
 
-    FD_SET (iListener, &master);
-    fdmax = iListener;
-    for (;;)
-    {
-        read_fds = master;
-        if (-1 == (select (fdmax+1, &read_fds, NULL, NULL, NULL)))
+        for (p=sServerInfo; NULL!=p; p = p->ai_next)
         {
-            perror ("server: select");
-            exit (4);
-        }
-        for (i = 0;i <= fdmax; i++)
-        {
-            if (FD_ISSET (i, &read_fds))
-            {
-                if (i == iListener)
+                if (-1 == (iListener = socket (p->ai_family, p->ai_socktype, p->ai_protocol)))
                 {
-                    //Handle new connection
-                    addrlen = sizeof sRemoteAddr;
-                    if (-1 == (iNewFd = accept (iListener, (struct sockaddr*)sRemoteAddr, &addrlen)))
-                    {
-                        perror ("server: accept");
-                    }
-                    else
-                    {
-                        FD_SET (iNewFd, &master);
+                        perror ("server: socket");
+                        continue;
+                }
+                setsockopt (iListener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof (int));
+                if (-1 == (bind (iListener, p->ai_addr, p->ai_addrlen)))
+                {
+                        perror ("server: bind");
+                        close (iListener);
+                        continue;
+                }
+                break;
+        }
+        if (NULL == p)
+        {
+                fprintf (stderr, "server: failed to bind\n");
+                exit (2);
+        }
+        freeaddrinfo (sServerInfo);
+        if (-1 == listen (iListener,10))
+        {
+                perror ("server: listen");
+                exit (3);
+        }
 
-                    }
+        FD_SET (iListener, &master);
+        fdmax = iListener;
+        for (;;)
+        {
+                read_fds = master;
+                if (-1 == (select (fdmax+1, &read_fds, NULL, NULL, NULL)))
+                {
+                        perror ("server: select");
+                        exit (4);
+                }
+                for (i = 0;i <= fdmax; i++)
+                {
+                        if (FD_ISSET (i, &read_fds))
+                        {
+                                if (i == iListener)
+                                {
+                                        //Handle new connection
+                                        addrlen = sizeof sRemoteAddr;
+                                        if (-1 == (iNewFd = accept (iListener, (struct sockaddr*)&sRemoteAddr, &addrlen)))
+                                        {
+                                                perror ("server: accept");
+                                        }
+                                        else
+                                        {
+                                                FD_SET (iNewFd, &master);
+                                                if (iNewFd > iListener)
+                                                {
+                                                        fdmax = iNewFd;
+                                                }
+                                                fprintf (stdout, "server: New connection from %s on socket: %d",
+                                                                inet_ntop (sRemoteAddr.ss_family,get_in_addr ((struct sockaddr*)&sRemoteAddr), acRemoteIP, INET6_ADDRSTRLEN), iNewFd);
+
+                                        }
+                                }
+                                else
+                                {
+                                        //Handle data frm client
+                                        if (0 >= (iNumBytes = recv (i, acBuf, iNumBytes, 0)))
+                                        {
+                                                if (0 == iNumBytes)
+                                                {
+                                                        fprintf (stderr, "server: socket %d hung up\n", i);
+                                                }
+                                                else
+                                                {
+                                                        perror ("server: recv");
+                                                }
+                                                close (i);
+                                                FD_CLR (i, &master);
+                                        }
+                                        else
+                                        {
+                                                //Send this to all other clients
+                                                for (j = 0; j<fdmax ;j++)
+                                                {
+                                                        if (FD_ISSET (j, &master))
+                                                        {
+                                                                if (j != iListener && j!= i)
+                                                                {
+                                                                        if (-1 == (iNumBytes =send (j, acBuf, iNumBytes, 0)))
+                                                                        {
+                                                                                perror ("server: send");
+                                                                        }
+                                                                }
+                                                        }
+                                                }
+                                        }
+                                }
+
+                        }
                 }
 
-            }
         }
-
-    }
 
 }
 
