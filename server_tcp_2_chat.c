@@ -42,15 +42,15 @@ int main ()
         memset (&sHints, 0, sizeof sHints);
         sHints.ai_family = AF_UNSPEC;
         sHints.ai_socktype = SOCK_STREAM;
-        //sHints.ai_flags = AI_PASSIVE;
+        sHints.ai_flags = AI_PASSIVE;
 
-        if (0 != (iStatus = getaddrinfo ("127.0.0.5", PORT, &sHints, &sServerInfo)))
+        if (0 != (iStatus = getaddrinfo (NULL, PORT, &sHints, &sServerInfo)))
         {
                 fprintf (stderr, "server: getaddrinfo %s\n", gai_strerror (iStatus));
                 exit (1);
         }
 
-        for (p=sServerInfo; NULL!=p; p = p->ai_next)
+        for (p = sServerInfo; NULL != p; p = p->ai_next)
         {
                 if (-1 == (iListener = socket (p->ai_family, p->ai_socktype, p->ai_protocol)))
                 {
@@ -80,6 +80,7 @@ int main ()
 
         FD_SET (iListener, &master);
         fdmax = iListener;
+        printf("\nTCPServer Waiting for client on port %s\n", PORT);
         for (;;)
         {
                 read_fds = master;
@@ -107,15 +108,16 @@ int main ()
                                                 {
                                                         fdmax = iNewFd;
                                                 }
-                                                fprintf (stdout, "server: New connection from %s on socket: %d",
-                                                                inet_ntop (sRemoteAddr.ss_family,get_in_addr ((struct sockaddr*)&sRemoteAddr), acRemoteIP, INET6_ADDRSTRLEN), iNewFd);
+                                                fflush (stdout);
+                                                inet_ntop (sRemoteAddr.ss_family,get_in_addr ((struct sockaddr*)&sRemoteAddr), acRemoteIP, sizeof acRemoteIP);
+                                                printf ("server: New connection from %s on socket: %d\n", acRemoteIP, iNewFd);
 
                                         }
                                 }
                                 else
                                 {
                                         //Handle data frm client
-                                        if (0 >= (iNumBytes = recv (i, acBuf, iNumBytes, 0)))
+                                        if (0 >= (iNumBytes = recv (i, acBuf, 256, 0)))
                                         {
                                                 if (0 == iNumBytes)
                                                 {
@@ -131,7 +133,7 @@ int main ()
                                         else
                                         {
                                                 //Send this to all other clients
-                                                for (j = 0; j<fdmax ;j++)
+                                                for (j = 0; j<= fdmax ;j++)
                                                 {
                                                         if (FD_ISSET (j, &master))
                                                         {
