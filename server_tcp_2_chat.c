@@ -14,6 +14,62 @@
 #define PORT "9034"
 #define BACKLOG 10
 
+int sendall (int iSockFd, char* acBuf, int* len)
+{
+        int n , total =0, iNumBytesLeft = *len;
+        //printf ("server: debug: len:%d", *len);
+        while (total < *len)
+        {
+                n = send (iSockFd, acBuf+total, iNumBytesLeft, 0);
+                if (-1 == n)
+                {
+                        perror ("client: send");
+                        break;
+                }
+                total += n;
+                iNumBytesLeft -= n;
+        }
+        *len = total;
+        return -1 == n ?-1:0;
+}
+
+void rearrangeClientNames (int iIndex,char *acClientNames[10][2], int uiNumClients)
+{
+        int i,j;
+        if (0 == uiNumClients)
+        {
+                return;
+        }
+        for  (i = iIndex; i< uiNumClients; i++)
+        {
+                strcpy (**((acClientNames + i) + 0) , **((acClientNames + (i+1)) + 0));
+                strcpy (**((acClientNames + i) + 1) , **((acClientNames + (i+1)) + 1));
+        }
+        free (**((acClientNames + i) + 0));
+        free (**((acClientNames + i) + 1));
+}
+
+int getClientIndex (int i, char  *acClientNames[10][2], int len)
+{
+        int j;
+        char acSockId[10];
+        //itoa (acSockId, i);
+        sprintf (acSockId, "%d",i);
+        for (j = 0;j < len;j++)
+        {
+                if (0 == strcmp (**((acClientNames + j) + 0), acSockId))
+                {
+                        printf ("index:%d\n", j);
+                        return j;
+                }
+                else
+                {
+                        printf ("j:%d :%s  \n",j, **((acClientNames + j) + 0));
+
+                }
+        }
+        return -1;
+}
 void *get_in_addr(struct sockaddr *sa)
 {
         if (AF_INET == sa->sa_family)
@@ -26,13 +82,13 @@ void *get_in_addr(struct sockaddr *sa)
 int main ()
 {
         fd_set master, read_fds;
-        int fdmax;
+        int fdmax, uiNumClients=0, iIndex;
         struct addrinfo *sServerInfo, sHints, *p;
         struct sockaddr_storage sRemoteAddr;
         socklen_t addrlen;
         int iListener , iNewFd, iStatus, yes=1, i, j;
 
-        char acBuf[256];
+        char acBuf[256], *acClientNames[10][2], acTmp[256];
         int iNumBytes;
 
         char acRemoteIP[INET6_ADDRSTRLEN];
@@ -83,6 +139,8 @@ int main ()
         printf("\nTCPServer Waiting for client on port %s\n", PORT);
         for (;;)
         {
+                strcpy (acTmp, "");
+                strcpy (acBuf, "");
                 read_fds = master;
                 if (-1 == (select (fdmax+1, &read_fds, NULL, NULL, NULL)))
                 {
@@ -91,7 +149,9 @@ int main ()
                 }
                 for (i = 0;i <= fdmax; i++)
                 {
-                        if (FD_ISSET (i, &read_fds))
+                strcpy (acTmp, "");
+                strcpy (acBuf, "");
+                if (FD_ISSET (i, &read_fds))
                         {
                                 if (i == iListener)
                                 {
@@ -110,7 +170,25 @@ int main ()
                                                 }
                                                 fflush (stdout);
                                                 inet_ntop (sRemoteAddr.ss_family,get_in_addr ((struct sockaddr*)&sRemoteAddr), acRemoteIP, sizeof acRemoteIP);
-                                                printf ("server: New connection from %s on socket: %d\n", acRemoteIP, iNewFd);
+                                                if (0 >= (iNumBytes = recv (iNewFd, acBuf, 256, 0)))
+                                                {
+                                                        perror ("server: recv");
+                                                }
+                                                else
+                                                {
+                                                        acClientNames[uiNumClients][0] = (char*)malloc (sizeof (iNewFd));
+                                                        //itoa (iNewFd, acTmp);
+                                                        sprintf (acTmp, "%d", iNewFd);
+                                                        strcpy (acClientNames[uiNumClients][0], acTmp);
+                                                        //printf ("sever: debug : acBuf:%s: iNumBytes:%d\n", acBuf, iNumBytes);
+                                                        acClientNames[uiNumClients][1] = (char*)malloc (sizeof (acBuf));
+                                                        strcpy(acClientNames[uiNumClients][1], acBuf);
+                                                        printf ("server: New connection from %s[%s] on socket: %d||%s\n", acRemoteIP, acClientNames[uiNumClients][1], iNewFd, 
+                                                                        acClientNames[uiNumClients][0]);
+                                                        uiNumClients++;
+
+                                                }
+
 
                                         }
                                 }
@@ -122,6 +200,13 @@ int main ()
                                                 if (0 == iNumBytes)
                                                 {
                                                         fprintf (stderr, "server: socket %d hung up\n", i);
+                                                        if (-1 == (iIndex = getClientIndex (i, acClientNames, uiNumClients)))
+                                                        {
+                                                                printf ("client: no client index found!\n");
+                                                                exit (1);
+                                                        }
+                                                        rearrangeClientNames (iIndex, acClientNames, uiNumClients);
+                                                        uiNumClients--;
                                                 }
                                                 else
                                                 {
@@ -139,7 +224,13 @@ int main ()
                                                         {
                                                                 if (j != iListener && j!= i)
                                                                 {
-                                                                        if (-1 == (iNumBytes =send (j, acBuf, iNumBytes, 0)))
+                                                                        iIndex = getClientIndex (i, acClientNames, uiNumClients);
+                                                                        strcpy (acTmp, "");
+                                                                        strcpy (acTmp, acClientNames[iIndex][1]);
+                                                                        strcat (acTmp, acBuf);
+                                                                        //printf ("server: sendall : %s\n", acTmp);
+                                                                        iNumBytes = strlen (acTmp);
+                                                                        if (-1 == (iNumBytes =sendall (j, acTmp, &iNumBytes)))
                                                                         {
                                                                                 perror ("server: send");
                                                                         }

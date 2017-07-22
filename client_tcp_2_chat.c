@@ -13,6 +13,24 @@
 
 #define MAXDATASIZE 256
 
+int sendall (int iSockFd, char* acBuf, int* len)
+{
+        int n , total =0, iNumBytesLeft = *len;
+        //printf ("client: debug :len:%d", *len);
+        while (total < *len)
+        {
+                n = send (iSockFd, acBuf+total, iNumBytesLeft, 0);
+                if (-1 == n)
+                {
+                        perror ("client: send");
+                        break;
+                }
+                total += n;
+                iNumBytesLeft -= n;
+        }
+        *len = total;
+        return -1 == n ?-1:0;
+}
 void *get_in_addr(struct sockaddr *sa)
 {
         if (AF_INET == sa->sa_family)
@@ -24,16 +42,16 @@ void *get_in_addr(struct sockaddr *sa)
 
 int main (int argc, char *argv[])
 {
-        int iSockFd, iNumBytes, i;
+        int iSockFd, iNumBytes, i, iLen=0;
         char acRecvBuf[MAXDATASIZE], acSendBuf[MAXDATASIZE];
         struct addrinfo sHints , *sServerInfo, *p;
         int iStatus, fdmax;
         fd_set master, read_fds;
         char acAddress[INET6_ADDRSTRLEN];
 
-        if (2 != argc)
+        if (3 != argc)
         {
-                fprintf (stderr, "usage: client hostname");
+                fprintf (stderr, "usage: client hostname [username]");
                 exit (1);
         }
 
@@ -77,6 +95,15 @@ int main (int argc, char *argv[])
         FD_SET (0, &master);
         FD_SET (iSockFd, &master);
         fdmax = iSockFd;
+        iLen = strlen(argv[2]) + 1;
+        if (-1 == (iNumBytes =sendall (iSockFd, argv[2], &iLen)))
+        {
+                perror ("client: send");
+        }
+        else
+        {
+                printf ("client: username set as %s:%d\n", argv[2], iLen);
+        }
 
         while (1)
         {
@@ -100,10 +127,12 @@ int main (int argc, char *argv[])
                                         }
                                         else
                                         {
-                                               if (-1 == (iNumBytes =send (iSockFd, acSendBuf, sizeof acSendBuf, 0)))
-                                               {
-                                                       perror ("client: send");
-                                               }
+                                                iLen = strlen(acSendBuf) + 1;
+                                                //printf ("client: debug : sendbuf:%s\n", acSendBuf);
+                                                if (-1 == (iNumBytes =sendall (iSockFd, acSendBuf, &iLen)))
+                                                {
+                                                        perror ("client: send");
+                                                }
                                         }
                                 }
                                 else
