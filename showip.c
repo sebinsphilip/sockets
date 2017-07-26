@@ -5,6 +5,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include "showip.h"
 
 int  main (int argc, char *argv[])
 {
@@ -12,6 +13,8 @@ int  main (int argc, char *argv[])
     int status ;
     char ip_str[INET6_ADDRSTRLEN];
     memset (&hints, 0, sizeof hints);
+
+    printf ("\nshowip version Major:%d Minor:%d\n",SOCKET_VERSION_MAJOR, SOCKET_VERSION_MINOR);
 
     if (2 != argc)
     {
