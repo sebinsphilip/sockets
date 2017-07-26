@@ -1,18 +1,99 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <errno.h>
-#include <string.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <signal.h>
+#include "tcp_2_chat.h"
 
-#define PORT "9034"
 #define BACKLOG 10
+
+
+userList_pointer create_ListNode()
+{
+	userList_pointer head = (userList_pointer)malloc(sizeof( userList_node));
+	if (head != NULL)
+		head->next = NULL;
+	return head;
+}
+void delete_ListNode (userList_pointer p)
+{
+	userList_pointer temp;
+	if (p!=NULL)
+	{
+		while(p->next != NULL)
+		{
+			temp = p;
+			p = p->next;
+			free(temp);
+		}
+	free(p);
+	}
+	p	= NULL;
+
+}
+void delete_Node (userList_pointer *head, int iSockFd)
+{
+        userList_pointer prev = NULL, p = *head;
+        char acName[100];
+        sprintf (acName, "%d", iSockFd);
+        if (NULL == p)
+        {
+                return;
+        }
+        while (NULL != p)
+        {
+                if (0 == strcmp (acName, p->acSockId))
+                {
+                        if (NULL != prev)
+                                prev->next = p->next;
+                        free (p);
+                        if (NULL == prev)
+                                *head = NULL;
+                        return;
+                }
+                prev = p;
+                p = p->next;
+        }
+
+}
+void attach_ListNode (userList_pointer *head, int iSockFd, char *acName)
+{
+        userList_pointer new_node = create_ListNode ();
+        if (NULL == new_node)
+        {
+                printf ("NNK!!!\n");
+        }
+        userList_pointer p = *head;
+        new_node->next = NULL;
+        sprintf (new_node->acSockId, "%d", iSockFd ); 
+        strcpy (new_node->acUserName, acName);
+        printf ("new_node->acUserName:%s", new_node->acUserName);
+
+        if (NULL == *head)
+        {
+                *head = new_node;
+                return;
+        }
+        while (NULL != p->next)
+                p = p->next;
+        p->next = new_node;
+}
+
+char *getClientName_ListNode (userList_pointer head, int iSockFd)
+{
+        userList_pointer p = head;
+        char acName[100];
+        sprintf (acName , "%d", iSockFd);
+        if (NULL == head)
+        {
+                printf ("No way!!\n");
+        }
+        while (NULL != p)
+        {
+                printf (">>>%s\n", p->acUserName);
+                if (0 == strcmp (acName, p->acSockId))
+                {
+                        return p->acUserName;
+                }
+                p = p->next;
+        }
+        return "";
+}
 
 int sendall (int iSockFd, char* acBuf, int* len)
 {
@@ -32,7 +113,7 @@ int sendall (int iSockFd, char* acBuf, int* len)
         *len = total;
         return -1 == n ?-1:0;
 }
-
+#if 0
 void rearrangeClientNames (int iIndex,char *acClientNames[10][2], int uiNumClients)
 {
         int i,j;
@@ -40,11 +121,13 @@ void rearrangeClientNames (int iIndex,char *acClientNames[10][2], int uiNumClien
         {
                 return;
         }
-        for  (i = iIndex; i< uiNumClients; i++)
+        for  (i = iIndex; i< (uiNumClients-1); i++)
         {
+                printf ("i is :%d\n",i);
                 strcpy (**((acClientNames + i) + 0) , **((acClientNames + (i+1)) + 0));
                 strcpy (**((acClientNames + i) + 1) , **((acClientNames + (i+1)) + 1));
         }
+        printf ("server: debug: uiNumClients:%d, i:%d, iIndex:%d\n", uiNumClients, i, iIndex);
         free (**((acClientNames + i) + 0));
         free (**((acClientNames + i) + 1));
 }
@@ -70,6 +153,8 @@ int getClientIndex (int i, char  *acClientNames[10][2], int len)
         }
         return -1;
 }
+#endif
+
 void *get_in_addr(struct sockaddr *sa)
 {
         if (AF_INET == sa->sa_family)
@@ -81,6 +166,7 @@ void *get_in_addr(struct sockaddr *sa)
 
 int main ()
 {
+        userList_pointer sListHead = NULL;
         fd_set master, read_fds;
         int fdmax, uiNumClients=0, iIndex;
         struct addrinfo *sServerInfo, sHints, *p;
@@ -88,7 +174,10 @@ int main ()
         socklen_t addrlen;
         int iListener , iNewFd, iStatus, yes=1, i, j;
 
-        char acBuf[256], *acClientNames[10][2], acTmp[256];
+        char acBuf[256], acTmp[256];
+#if 0       
+        char *acClientNames[10][2];
+#endif        
         int iNumBytes;
 
         char acRemoteIP[INET6_ADDRSTRLEN];
@@ -169,13 +258,15 @@ int main ()
                                                         fdmax = iNewFd;
                                                 }
                                                 fflush (stdout);
-                                                inet_ntop (sRemoteAddr.ss_family,get_in_addr ((struct sockaddr*)&sRemoteAddr), acRemoteIP, sizeof acRemoteIP);
+                                                inet_ntop (sRemoteAddr.ss_family,get_in_addr ((struct sockaddr*)&sRemoteAddr),
+                                                                acRemoteIP, sizeof acRemoteIP);
                                                 if (0 >= (iNumBytes = recv (iNewFd, acBuf, 256, 0)))
                                                 {
                                                         perror ("server: recv");
                                                 }
                                                 else
                                                 {
+#if 0                                                        
                                                         acClientNames[uiNumClients][0] = (char*)malloc (sizeof (iNewFd));
                                                         //itoa (iNewFd, acTmp);
                                                         sprintf (acTmp, "%d", iNewFd);
@@ -183,9 +274,18 @@ int main ()
                                                         //printf ("sever: debug : acBuf:%s: iNumBytes:%d\n", acBuf, iNumBytes);
                                                         acClientNames[uiNumClients][1] = (char*)malloc (sizeof (acBuf));
                                                         strcpy(acClientNames[uiNumClients][1], acBuf);
-                                                        printf ("server: New connection from %s[%s] on socket: %d||%s\n", acRemoteIP, acClientNames[uiNumClients][1], iNewFd, 
+                                                        printf ("server: New connection from %s[%s] on socket: %d||%s\n",
+                                                                        acRemoteIP, acClientNames[uiNumClients][1], iNewFd, 
                                                                         acClientNames[uiNumClients][0]);
                                                         uiNumClients++;
+#endif
+                                                        attach_ListNode (&sListHead, iNewFd, acBuf);
+                                                        if (NULL == sListHead)
+                                                        {
+                                                                printf ("FUCK!\n");
+                                                        }
+
+
 
                                                 }
 
@@ -200,13 +300,17 @@ int main ()
                                                 if (0 == iNumBytes)
                                                 {
                                                         fprintf (stderr, "server: socket %d hung up\n", i);
-                                                        if (-1 == (iIndex = getClientIndex (i, acClientNames, uiNumClients)))
+#if 0                                                    
+                                                        if (-1 == (iIndex = getClientIndex (i, acClientNames,
+                                                                                        uiNumClients)))
                                                         {
                                                                 printf ("client: no client index found!\n");
                                                                 exit (1);
                                                         }
                                                         rearrangeClientNames (iIndex, acClientNames, uiNumClients);
                                                         uiNumClients--;
+#endif
+                                                        delete_Node (&sListHead, i);
                                                 }
                                                 else
                                                 {
@@ -224,9 +328,15 @@ int main ()
                                                         {
                                                                 if (j != iListener && j!= i)
                                                                 {
-                                                                        iIndex = getClientIndex (i, acClientNames, uiNumClients);
+#if 0                                                                        
+                                                                        iIndex = getClientIndex (i, acClientNames,
+                                                                                        uiNumClients);
                                                                         strcpy (acTmp, "");
                                                                         strcpy (acTmp, acClientNames[iIndex][1]);
+#endif                                                                        
+                                                                        strcpy (acTmp, "");
+                                                                        strcpy (acTmp, getClientName_ListNode (sListHead, i));
+                                                                        printf ("::%s\n", acTmp);
                                                                         strcat (acTmp, acBuf);
                                                                         //printf ("server: sendall : %s\n", acTmp);
                                                                         iNumBytes = strlen (acTmp);
