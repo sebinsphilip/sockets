@@ -60,7 +60,7 @@ void attach_ListNode (userList_pointer *head, int iSockFd, char *acName)
         }
         userList_pointer p = *head;
         new_node->next = NULL;
-        sprintf (new_node->acSockId, "%d", iSockFd ); 
+        sprintf (new_node->acSockId, "%d", iSockFd );
         strcpy (new_node->acUserName, acName);
         printf ("new_node->acUserName:%s", new_node->acUserName);
 
@@ -175,9 +175,9 @@ int main ()
         int iListener , iNewFd, iStatus, yes=1, i, j;
 
         char acBuf[256], acTmp[256];
-#if 0       
+#if 0
         char *acClientNames[10][2];
-#endif        
+#endif
         int iNumBytes;
 
         char acRemoteIP[INET6_ADDRSTRLEN];
@@ -266,7 +266,7 @@ int main ()
                                                 }
                                                 else
                                                 {
-#if 0                                                        
+#if 0
                                                         acClientNames[uiNumClients][0] = (char*)malloc (sizeof (iNewFd));
                                                         //itoa (iNewFd, acTmp);
                                                         sprintf (acTmp, "%d", iNewFd);
@@ -275,7 +275,7 @@ int main ()
                                                         acClientNames[uiNumClients][1] = (char*)malloc (sizeof (acBuf));
                                                         strcpy(acClientNames[uiNumClients][1], acBuf);
                                                         printf ("server: New connection from %s[%s] on socket: %d||%s\n",
-                                                                        acRemoteIP, acClientNames[uiNumClients][1], iNewFd, 
+                                                                        acRemoteIP, acClientNames[uiNumClients][1], iNewFd,
                                                                         acClientNames[uiNumClients][0]);
                                                         uiNumClients++;
 #endif
@@ -300,7 +300,7 @@ int main ()
                                                 if (0 == iNumBytes)
                                                 {
                                                         fprintf (stderr, "server: socket %d hung up\n", i);
-#if 0                                                    
+#if 0
                                                         if (-1 == (iIndex = getClientIndex (i, acClientNames,
                                                                                         uiNumClients)))
                                                         {
@@ -328,12 +328,12 @@ int main ()
                                                         {
                                                                 if (j != iListener && j!= i)
                                                                 {
-#if 0                                                                        
+#if 0
                                                                         iIndex = getClientIndex (i, acClientNames,
                                                                                         uiNumClients);
                                                                         strcpy (acTmp, "");
                                                                         strcpy (acTmp, acClientNames[iIndex][1]);
-#endif                                                                        
+#endif
                                                                         strcpy (acTmp, "");
                                                                         strcpy (acTmp, getClientName_ListNode (sListHead, i));
                                                                         printf ("::%s\n", acTmp);

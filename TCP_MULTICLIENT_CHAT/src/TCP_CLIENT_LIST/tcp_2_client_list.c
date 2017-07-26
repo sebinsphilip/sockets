@@ -57,7 +57,7 @@ void attach_ListNode (userList_pointer *head, int iSockFd, char *acName)
         }
         userList_pointer p = *head;
         new_node->next = NULL;
-        sprintf (new_node->acSockId, "%d", iSockFd ); 
+        sprintf (new_node->acSockId, "%d", iSockFd );
         strcpy (new_node->acUserName, acName);
         printf ("new_node->acUserName:%s", new_node->acUserName);
 
